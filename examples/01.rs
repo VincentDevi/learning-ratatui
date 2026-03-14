@@ -1,7 +1,14 @@
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::{DefaultTerminal, style::Stylize, widgets::Paragraph};
+use ratatui::{
+    DefaultTerminal, Frame,
+    layout::Layout,
+    style::Stylize,
+    widgets::{Block, Paragraph, Tabs},
+};
+
+use ratatui_core::layout::Constraint::{Fill, Length, Min};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,11 +25,7 @@ fn run(mut terminal: DefaultTerminal) -> io::Result<()> {
     loop {
         c += 1;
         terminal.draw(|frame| {
-            let greeting = Paragraph::new(format!("Hello world"))
-                .red()
-                .on_green()
-                .bold();
-            frame.render_widget(greeting, frame.area());
+            draw(frame);
         })?;
         if let Ok(action) = handle_events() {
             if action == Actionlist::Quit {
@@ -68,4 +71,30 @@ impl Actionlist {
             Self::Nothing => (),
         }
     }
+}
+
+fn draw(frame: &mut Frame) {
+    let vertical = Layout::vertical([Length(4), Min(0), Length(1)]);
+
+    let [top_area, main_area, status_area] = vertical.areas(frame.area());
+
+    let horizontal = Layout::horizontal([Fill(1); 2]);
+    let [left_area, right_area] = horizontal.areas(main_area);
+
+    let top_layout = Layout::vertical([Length(3), Length(1)]);
+    let [title_area, tab_area] = top_layout.areas(top_area);
+
+    let left_panel = Block::bordered().title("Left");
+    let text_inside_left_panel = Paragraph::new(format!("Inside left panel"))
+        .red()
+        .on_green()
+        .bold()
+        .block(left_panel);
+    let tabs = Tabs::default().titles(vec!["Tab 1", "Tab 2"]);
+
+    frame.render_widget(Block::bordered().title("Title Bar"), title_area);
+    frame.render_widget(tabs, tab_area);
+    frame.render_widget(Block::bordered().title("Status Bar"), status_area);
+    frame.render_widget(text_inside_left_panel, left_area);
+    frame.render_widget(Block::bordered().title("Right"), right_area);
 }
