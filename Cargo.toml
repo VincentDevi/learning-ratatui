@@ -1,0 +1,21 @@
+[package]
+name = "assistant-tui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# -- Async
+tokio = {version = "1.50.0", features= ["full"]}
+futures = "0.3.32"
+futures-timer = "3.0.3"
+
+# -- CLI
+ratatui = "0.30.0"
+crossterm = {version = "0.29.0", features= ["event-stream"]}
+color-eyre = "0.6.5"
+
+
+
+# -- Utils
+derive_more = {version = "2.1.1", features = ["from", "display"]}
+thiserror = "2.0.18"
