@@ -10,6 +10,12 @@ use ratatui::{
 
 use ratatui_core::layout::Constraint::{Fill, Length, Min};
 
+// Ratatui introduction
+// Create an inifite loop to allow us to render the TUI and create interaction
+// Pressing `Q` will allow us to kill the app.
+
+// Introduction to layout, style, events
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = ratatui::init();
