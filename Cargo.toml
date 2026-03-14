@@ -19,3 +19,4 @@ color-eyre = "0.6.5"
 # -- Utils
 derive_more = {version = "2.1.1", features = ["from", "display"]}
 thiserror = "2.0.18"
+ratatui-core = "0.1.0"
