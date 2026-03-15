@@ -1,7 +1,13 @@
 use std::{error::Error, io};
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::{DefaultTerminal, widgets::Paragraph};
+use crossterm::event::{Event, KeyCode, KeyEventKind};
+use ratatui::{
+    DefaultTerminal, Frame,
+    style::Stylize,
+    symbols::border,
+    text::{Line, Span, Text},
+    widgets::{Block, Paragraph, StatefulWidget, Widget},
+};
 
 // Ratatui first interactive application
 
@@ -25,14 +31,14 @@ impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         while !self.exit {
             terminal.draw(|frame| {
-                frame.render_widget(
-                    Paragraph::new(format!(" Counter : {}", self.counter)),
-                    frame.area(),
-                );
+                self.draw(frame);
             })?;
             let _ = self.handle_key_events();
         }
         Ok(())
+    }
+    fn draw(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.area());
     }
 
     fn handle_key_events(&mut self) -> io::Result<()> {
@@ -67,6 +73,36 @@ impl App {
     }
     fn close(&mut self) {
         self.exit = true;
+    }
+}
+
+impl Widget for &App {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
+    where
+        Self: Sized,
+    {
+        let actions = Line::from(vec![
+            " Decrement ".into(),
+            " <Left> / <Down>".red().bold(),
+            " Increment ".into(),
+            " <Right> / <Up> ".blue().bold(),
+            " Quit ".into(),
+            " <Q> ".bold(),
+        ]);
+
+        let counter = Text::from(vec![Line::from(vec![
+            "Counter: ".into(),
+            self.counter.to_string().yellow().bold(),
+        ])]);
+
+        let block = Block::bordered()
+            .border_set(border::THICK)
+            .title_bottom(actions.centered());
+
+        Paragraph::new(counter)
+            .centered()
+            .block(block)
+            .render(area, buf);
     }
 }
 
