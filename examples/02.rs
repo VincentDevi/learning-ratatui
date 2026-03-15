@@ -5,14 +5,15 @@ use ratatui::{
     DefaultTerminal, Frame,
     style::Stylize,
     symbols::border,
-    text::{Line, Span, Text},
-    widgets::{Block, Paragraph, StatefulWidget, Widget},
+    text::{Line, Text},
+    widgets::{Block, Paragraph, Widget},
 };
 
 // Ratatui first interactive application
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let _ = color_eyre::install();
     let _ = ratatui::run(app);
     Ok(())
 }
