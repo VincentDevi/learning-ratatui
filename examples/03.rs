@@ -1,0 +1,177 @@
+use std::{collections::HashMap, error::Error, io};
+
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use ratatui::{
+    Frame, Terminal,
+    prelude::{Backend, CrosstermBackend},
+    text::Line,
+    widgets::Widget,
+};
+
+// Create a more complex application to use every concept that we have learned so far
+// Create a JSON Editor
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    color_eyre::install()?;
+    // override default terminal config
+    enable_raw_mode();
+    let mut stderr = io::stderr();
+    execute!(stderr, EnterAlternateScreen, EnableMouseCapture);
+    let backend = CrosstermBackend::new(stderr);
+    let mut terminal = Terminal::new(backend)?;
+    // Create the app
+    let mut app = App::default();
+    let res = app.run_app(&mut terminal);
+
+    // restore terminal to basic config
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    );
+    terminal.show_cursor()?;
+
+    // print the json that was created - if we do not have any error and we return `true`
+    if let ExitState::Print(value) = app.exit {
+        if value {
+            app.print_json()?;
+        }
+    }
+
+    Ok(())
+}
+
+// Since we will have mutilple view. Main, Edit and Exiting
+// we will define those as an enum and they will be set as our app state
+
+#[derive(Debug, Default)]
+enum Screen {
+    Main,
+    Editing,
+    #[default]
+    Exiting,
+}
+// Ratatui does not remember anything about previous state ( value, etc ). Everything should be
+// handled manually.
+
+// This will allow us to know if the user is currently on the key part or the value part of the
+// screen, This is another state inside one of the state of the `Screen` enum
+#[derive(Debug, Default)]
+enum EditingScreen {
+    #[default]
+    Key,
+    Value,
+}
+
+#[derive(Debug, Default)]
+enum ExitState {
+    Print(bool),
+    #[default]
+    Nothing,
+}
+
+// This represent the whole app state
+#[derive(Debug, Default)]
+struct App {
+    key_input: String,
+    value_input: String,
+    pairs: HashMap<String, String>,
+    screen: Screen,
+    editing_screen: Option<EditingScreen>,
+    exit: ExitState,
+}
+
+impl App {
+    pub fn run_app<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()>
+    where
+        io::Error: From<B::Error>,
+    {
+        loop {
+            terminal.draw(|frame| {
+                self.draw(frame);
+            })?;
+
+            // handle all the event, and will modify the state of our app
+            self.handle_events();
+
+            // check if we need to exit the app
+            if let ExitState::Print(_) = self.exit {
+                return Ok(());
+            }
+        }
+    }
+
+    // This method is mandatory because render does not want a mutable self, but the mut is needed
+    // to change the state of our app -> used in our handle_events function
+    fn draw(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.area());
+    }
+
+    // This return nothing, but maybe an error
+    // this method is there to mutate the app state ( should consider a builder - need to read best
+    // practice about this )
+    fn handle_events(&mut self) -> io::Result<()> {
+        let event = crossterm::event::read()?;
+        if let Event::Key(ev) = event {
+            match self.screen {
+                Screen::Main => (),
+                Screen::Editing => (),
+                Screen::Exiting => self.exit = self.exiting_sreen_event(&ev),
+            };
+        };
+        Ok(())
+    }
+    // this should be called when we are in the exit state of our app / screen
+    fn exiting_sreen_event(&mut self, event: &KeyEvent) -> ExitState {
+        match event.kind {
+            KeyEventKind::Press => match event.code {
+                KeyCode::Char('y') => ExitState::Print(true),
+                KeyCode::Char('n') => ExitState::Print(false),
+                _ => ExitState::Nothing,
+            },
+            _ => ExitState::Nothing,
+        }
+    }
+    pub fn save_key_value(&mut self) {
+        // Insert input value in our hashmap
+        self.pairs
+            .insert(self.key_input.clone(), self.value_input.clone());
+        // reset all the inputs
+        self.value_input = String::new();
+        self.key_input = String::new();
+        // reset editing screen state
+        self.editing_screen = None;
+    }
+
+    pub fn toggle_editing(&mut self) {
+        match &self.editing_screen {
+            None => self.editing_screen = Some(EditingScreen::Key),
+            Some(screen) => match screen {
+                EditingScreen::Key => self.editing_screen = Some(EditingScreen::Value),
+                EditingScreen::Value => self.editing_screen = Some(EditingScreen::Key),
+            },
+        };
+    }
+
+    pub fn print_json(&mut self) -> serde_json::Result<()> {
+        let value = serde_json::to_string(&self.pairs)?;
+        println!("{value}");
+        Ok(())
+    }
+}
+
+// Here I want to use the widget trait so that I can render the whole app
+impl Widget for &App {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
+    where
+        Self: Sized,
+    {
+        Line::from(vec!["Hello".into()]).render(area, buf);
+    }
+}
