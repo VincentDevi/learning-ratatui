@@ -50,11 +50,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 // Since we will have mutilple view. Main, Edit and Exiting
 // we will define those as an enum and they will be set as our app state
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum Screen {
+    #[default]
     Main,
     Editing,
-    #[default]
     Exiting,
 }
 // Ratatui does not remember anything about previous state ( value, etc ). Everything should be
@@ -62,7 +62,7 @@ enum Screen {
 
 // This will allow us to know if the user is currently on the key part or the value part of the
 // screen, This is another state inside one of the state of the `Screen` enum
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 enum EditingScreen {
     #[default]
     Key,
@@ -120,15 +120,21 @@ impl App {
         let event = crossterm::event::read()?;
         if let Event::Key(ev) = event {
             match self.screen {
-                Screen::Main => (),
-                Screen::Editing => (),
+                Screen::Main => {
+                    let res = self.main_screen_event(&ev);
+                    self.screen = res;
+                    if res == Screen::Editing {
+                        self.editing_screen = Some(EditingScreen::Key);
+                    }
+                }
+                Screen::Editing => self.editing_screen_event(&ev),
                 Screen::Exiting => self.exit = self.exiting_sreen_event(&ev),
             };
         };
         Ok(())
     }
     // this should be called when we are in the exit state of our app / screen
-    fn exiting_sreen_event(&mut self, event: &KeyEvent) -> ExitState {
+    fn exiting_sreen_event(&self, event: &KeyEvent) -> ExitState {
         match event.kind {
             KeyEventKind::Press => match event.code {
                 KeyCode::Char('y') => ExitState::Print(true),
@@ -136,6 +142,60 @@ impl App {
                 _ => ExitState::Nothing,
             },
             _ => ExitState::Nothing,
+        }
+    }
+    fn main_screen_event(&self, event: &KeyEvent) -> Screen {
+        match event.kind {
+            KeyEventKind::Press => match event.code {
+                KeyCode::Char('e') => Screen::Editing,
+                KeyCode::Char('q') => Screen::Exiting,
+                _ => self.screen,
+            },
+            _ => self.screen,
+        }
+    }
+    fn editing_screen_event(&mut self, event: &KeyEvent) {
+        match event.kind {
+            KeyEventKind::Press => match event.code {
+                KeyCode::Enter => {
+                    if let Some(editing_screen) = self.editing_screen {
+                        match editing_screen {
+                            EditingScreen::Key => {
+                                self.editing_screen = Some(EditingScreen::Value);
+                            }
+                            EditingScreen::Value => {
+                                self.save_key_value();
+                                self.screen = Screen::Main;
+                            }
+                        }
+                    }
+                }
+                KeyCode::Backspace => {
+                    if let Some(editing_screen) = self.editing_screen {
+                        match editing_screen {
+                            EditingScreen::Key => {
+                                self.key_input.pop();
+                            }
+                            EditingScreen::Value => {
+                                self.value_input.pop();
+                            }
+                        }
+                    }
+                }
+                KeyCode::Tab => {
+                    self.toggle_editing();
+                }
+                KeyCode::Char(value) => {
+                    if let Some(editing_screen) = self.editing_screen {
+                        match editing_screen {
+                            EditingScreen::Key => self.key_input.push(value),
+                            EditingScreen::Value => self.value_input.push(value),
+                        }
+                    }
+                }
+                _ => todo!(),
+            },
+            _ => todo!(),
         }
     }
     pub fn save_key_value(&mut self) {
@@ -172,6 +232,11 @@ impl Widget for &App {
     where
         Self: Sized,
     {
-        Line::from(vec!["Hello".into()]).render(area, buf);
+        let text = match self.screen {
+            Screen::Exiting => "exit",
+            Screen::Main => "main",
+            Screen::Editing => "edit",
+        };
+        Line::from(vec![text.into()]).render(area, buf);
     }
 }
