@@ -7,9 +7,11 @@ use crossterm::{
 };
 use ratatui::{
     Frame, Terminal,
+    layout::{Constraint, Direction, Layout},
     prelude::{Backend, CrosstermBackend},
-    text::Line,
-    widgets::Widget,
+    style::{Color, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 
 // Create a more complex application to use every concept that we have learned so far
@@ -94,7 +96,90 @@ impl App {
     {
         loop {
             terminal.draw(|frame| {
-                self.draw(frame);
+                let chunks = Layout::default()
+                    .constraints([
+                        Constraint::Length(3),
+                        Constraint::Min(1),
+                        Constraint::Length(3),
+                    ])
+                    .split(frame.area());
+
+                let title_block = Block::default()
+                    .borders(Borders::ALL)
+                    .style(Style::default());
+
+                let title = Paragraph::new(Text::styled(
+                    "Create Json",
+                    Style::default().fg(Color::Green),
+                ))
+                .block(title_block);
+                frame.render_widget(title, chunks[0]);
+
+                let mut list_items = Vec::<ListItem>::new();
+
+                for key in self.pairs.keys() {
+                    list_items.push(ListItem::new(Line::from(Span::styled(
+                        format!("{:25} : {}", key, self.pairs.get(key).unwrap()),
+                        Style::default().fg(Color::Yellow),
+                    ))));
+                }
+                let list = List::new(list_items);
+                frame.render_widget(list, chunks[1]);
+
+                let current_mode_text = match self.screen {
+                    Screen::Main => Span::styled("Normal mode", Style::default().fg(Color::Green)),
+                    Screen::Editing => {
+                        Span::styled("Editing mode", Style::default().fg(Color::Yellow))
+                    }
+                    Screen::Exiting => {
+                        Span::styled("Exiting", Style::default().fg(Color::LightRed))
+                    }
+                };
+                let divider = Span::styled(" | ", Style::default().fg(Color::White));
+                let hint = if let Some(editing_screen) = &self.editing_screen {
+                    match editing_screen {
+                        EditingScreen::Key => {
+                            Span::styled("Editing Json Key", Style::default().fg(Color::Green))
+                        }
+                        EditingScreen::Value => Span::styled(
+                            "Editing Json Value",
+                            Style::default().fg(Color::LightGreen),
+                        ),
+                    }
+                } else {
+                    Span::styled(
+                        "Not  Editing Anything",
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+                let current_navigation_text = vec![current_mode_text, divider, hint];
+                let mode_footer = Paragraph::new(Line::from(current_navigation_text))
+                    .block(Block::default().borders(Borders::ALL));
+                let current_keys_hint = {
+                    match self.screen {
+                        Screen::Main => Span::styled(
+                            "(q) to quit / (e) to make new pair",
+                            Style::default().fg(Color::Red),
+                        ),
+                        Screen::Editing => Span::styled(
+                            "(ESC) to cancel/(Tab) to switch boxes/enter to complete",
+                            Style::default().fg(Color::Red),
+                        ),
+                        Screen::Exiting => Span::styled(
+                            "(q) to quit / (e) to make new pair",
+                            Style::default().fg(Color::Red),
+                        ),
+                    }
+                };
+
+                let key_notes_footer = Paragraph::new(Line::from(current_keys_hint))
+                    .block(Block::default().borders(Borders::ALL));
+                let footer_chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .split(chunks[2]);
+                frame.render_widget(mode_footer, footer_chunks[0]);
+                frame.render_widget(key_notes_footer, footer_chunks[1]);
             })?;
 
             // handle all the event, and will modify the state of our app
@@ -232,11 +317,16 @@ impl Widget for &App {
     where
         Self: Sized,
     {
-        let text = match self.screen {
-            Screen::Exiting => "exit",
-            Screen::Main => "main",
-            Screen::Editing => "edit",
-        };
-        Line::from(vec![text.into()]).render(area, buf);
+        let title_block = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default());
+
+        let title = Paragraph::new(Text::styled(
+            "Create Json",
+            Style::default().fg(Color::Green),
+        ))
+        .block(title_block);
+
+        title.render(area, buf);
     }
 }
