@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, io};
+use std::{collections::HashMap, error::Error, io, rc::Rc};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind},
@@ -7,7 +7,7 @@ use crossterm::{
 };
 use ratatui::{
     Frame, Terminal,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     prelude::{Backend, CrosstermBackend},
     style::{Color, Style},
     text::{Line, Span, Text},
@@ -96,23 +96,9 @@ impl App {
     {
         loop {
             terminal.draw(|frame| {
-                let chunks = Layout::default()
-                    .constraints([
-                        Constraint::Length(3),
-                        Constraint::Min(1),
-                        Constraint::Length(3),
-                    ])
-                    .split(frame.area());
+                let chunks = self.app_layout(frame);
 
-                let title_block = Block::default()
-                    .borders(Borders::ALL)
-                    .style(Style::default());
-
-                let title = Paragraph::new(Text::styled(
-                    "Create Json",
-                    Style::default().fg(Color::Green),
-                ))
-                .block(title_block);
+                let title = self.title_section();
                 frame.render_widget(title, chunks[0]);
 
                 let mut list_items = Vec::<ListItem>::new();
@@ -308,6 +294,28 @@ impl App {
         let value = serde_json::to_string(&self.pairs)?;
         println!("{value}");
         Ok(())
+    }
+
+    fn title_section(&self) -> Paragraph<'_> {
+        let title_block = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default());
+
+        Paragraph::new(Text::styled(
+            "Create Json",
+            Style::default().fg(Color::Green),
+        ))
+        .block(title_block)
+    }
+
+    fn app_layout(&self, frame: &mut Frame) -> Rc<[Rect]> {
+        Layout::default()
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Min(1),
+                Constraint::Length(3),
+            ])
+            .split(frame.area())
     }
 }
 
